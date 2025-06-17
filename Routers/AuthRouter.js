@@ -9,7 +9,7 @@ router.get("/users", UserController.getallUser);
 router.get("/getAllGroup", UserController.getAllGroup);
 router.post("/updateStatus/:id", UserController.updateStatus);
 router.post("/signup", UserController.createUser);
-router.post("/signInWithGoogle", UserController.signInWithGoogle);
+router.post("/signupWithGoogle", UserController.signInWithGoogle);
 router.get("/getUserById/:id", UserController.getUserById);
 router.post("/login", UserController.loginUser);
 router.put("/edituser/:id", UserController.editUser);

@@ -8,6 +8,7 @@ const router = express.Router();
 router.post("/company",  companyController.createCompany);
 router.get("/getallCompany", companyController.getallCompany);
 router.get("/getCompanyById/:id", companyController.getCompanyById);
+router.put("/editCompany/:id", companyController.editCompany);
 // router.post("/business", QRCodeontroller.createBusiness);
 // router.put("/qr-code/:id", authMiddleware, QRCodeontroller.editQRCode);
 router.delete("/deleteCompany/:id", companyController.deleteCompany);

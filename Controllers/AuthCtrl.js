@@ -34,54 +34,22 @@ class UserController {
 
   static async signInWithGoogle(req, res) {
     const { token } = req.body;
+  try {
+    // Verify the token sent from the frontend
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const uid = decodedToken.uid;
 
-    try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      console.log("decodedToken", decodedToken);
-      const { email, name, uid, picture } = decodedToken;
+    // Fetch the user info
+    const user = await admin.auth().getUser(uid);
+    console.log('User info from Firebase:', user);
 
-      let [user] = await db.query("SELECT * FROM company WHERE email = ?", [email]);
-
-      if (!user) {
-        console.log("user not found, creating new...");
-        const insertResult = await db.query("INSERT INTO company SET ?", {
-          email,
-          name,
-          googleUid: uid,
-          image: picture
-        });
-
-        // Insert ke baad id lena
-        const insertedId = insertResult.insertId;
-
-        user = {
-          id: insertedId,
-          email,
-          name,
-          image: picture
-        };
-      }
-
-      const appToken = jwt.sign(
-        { id: user.id, email: user.email },
-        "your_jwt_secret_key",
-        { expiresIn: "7d" }
-      );
-
-      res.json({
-        success: true,
-        token: appToken,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image
-        }
-      });
-    } catch (error) {
-      console.error("Error verifying Google token:", error);
-      res.status(401).json({ success: false, message: "Invalid Token" });
-    }
+    // Send response back to the frontend
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+   
   }
   static async getallUser(req, res) {
     try {
