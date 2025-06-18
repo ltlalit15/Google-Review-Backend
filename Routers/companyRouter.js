@@ -2,10 +2,11 @@ import express from "express";
 
 import companyController from "../Controllers/companyCtrl.js";
 import { authMiddleware } from "../Middlewares/Auth.js";
+import { upload } from "../Middlewares/upload.js";
 
 const router = express.Router();
 
-router.post("/company",  companyController.createCompany);
+router.post("/company", upload.single("image"), companyController.createCompany);
 router.get("/getallCompany", companyController.getallCompany);
 router.get("/getCompanyById/:id", companyController.getCompanyById);
 router.put("/editCompany/:id", companyController.editCompany);

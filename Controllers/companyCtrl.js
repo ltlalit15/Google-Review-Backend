@@ -20,8 +20,8 @@ class companyController {
 
   static async createCompany(req, res) {
     try {
-      const { business_name, business_type, first_name, last_name, location, email, password, image } = req.body;
-
+      const { business_name, business_type, first_name, last_name, location, email, password } = req.body;
+      console.log(req.body, "req.body;");
       if (email) {
         const existingCompany = await company.findEmail(email);
         if (existingCompany) {
@@ -29,38 +29,37 @@ class companyController {
         }
       }
 
-      let hashedPassword = null;
-      if (password) {
-        const salt = await bcrypt.genSalt(10);
-        hashedPassword = await bcrypt.hash(password, salt);
+      // ✅ Image URL from Cloudinary (optional)
+      let imageUrl = "";
+      if (req.file && req.file.path) {
+        imageUrl = req.file.path; // multer-storage-cloudinary gives full CDN URL
       }
 
       const dataToSave = {
         business_name,
         business_type,
+        first_name,
+        last_name,
+        location,
+        email,
+        password,
+        image: imageUrl, // add this field in DB model/schema
       };
-
-      if (first_name) dataToSave.first_name = first_name;
-      if (last_name) dataToSave.last_name = last_name;
-      if (location) dataToSave.location = location;
-      if (email) dataToSave.email = email;
-      if (hashedPassword) dataToSave.password = hashedPassword;
-      if (image) dataToSave.image = image;
-
+      console.log("dataToSave", dataToSave);
       const resultData = await company.create(dataToSave);
       const inserted = await company.getById(resultData.insertId);
 
       return res.status(201).json({
         success: true,
         message: "Company created successfully",
-        data: inserted
+        data: inserted,
       });
 
     } catch (error) {
       console.log("❌ Error while creating Company:", error);
       return res.status(500).json({
         success: false,
-        error: error.message || "Something went wrong"
+        error: error.message || "Something went wrong",
       });
     }
   }

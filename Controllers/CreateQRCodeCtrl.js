@@ -99,58 +99,189 @@ class QRCodeController {
   }
 
 
-  static async getByQrcode(req, res) {
-    try {
-      const { user_id } = req.params; // Extract user_id from request params
+  // static async getByQrcode(req, res) {
+  //   try {
+  //     const { user_id } = req.params; // Extract user_id from request params
 
-      // Fetch all company data matching the user_id from the qr_code table
-      const [companyData] = await db.query(
-        `SELECT * FROM qr_code WHERE user_id = ?`,
-        [user_id]  // The user_id is used to match company_id
-      );
+  //     // Fetch all company data matching the user_id from the qr_code table
+  //     const [companyData] = await db.query(
+  //       `SELECT * FROM qr_code WHERE user_id = ?`,
+  //       [user_id]  // The user_id is used to match company_id
+  //     );
 
-      if (companyData.length === 0) {
-        return res.status(200).json({
-          success: false,
-          message: "No QR codes found for the specified user_id"
-        });
-      }
+  //     if (companyData.length === 0) {
+  //       return res.status(200).json({
+  //         success: false,
+  //         message: "No QR codes found for the specified user_id"
+  //       });
+  //     }
 
-      // Fetch user data based on user_id
-      const [response] = await db.query(`SELECT first_name, last_name ,email FROM company WHERE id=?`, [user_id]);
-      console.log("response", response);
+  //     // Fetch user data based on user_id
+  //     const [response] = await db.query(`SELECT first_name, last_name ,email FROM company WHERE id=?`, [user_id]);
+  //     console.log("response", response);
 
-      const [qr_code] = await db.query(`SELECT image, user_id, id AS qr_code_id FROM qr_code WHERE user_id=?`, [user_id]);
-      console.log("qr_code", qr_code);
+  //     const [qr_code] = await db.query(`SELECT image, user_id, id AS qr_code_id FROM qr_code WHERE user_id=?`, [user_id]);
+  //     console.log("qr_code", qr_code);
 
-      const [banner] = await db.query(`SELECT image, user_id, qr_code_id FROM banner WHERE user_id=? AND qr_code_id = ?`, [qr_code[0].user_id, qr_code[0].qr_code_id]);
-      console.log("banner", banner);
+  //     const [banner] = await db.query(`SELECT image, user_id, qr_code_id FROM banner WHERE user_id=? AND qr_code_id = ?`, [qr_code[0].user_id, qr_code[0].qr_code_id]);
+  //     console.log("banner", banner);
 
-      // Combine all companyData records with the user data
-      // Combine all companyData records with the user data and banner image
-      const combinedData = companyData.map(item => ({
-        ...item, // Spread the companyData to include all fields
-        name: `${response[0].first_name} ${response[0].last_name}`, // Add user name
-        email: response[0].email, // Add user email
-        image: banner[0]?.image || null // Add banner image, handle if banner is missing
-      }));
+  //     const combinedData = companyData.map(item => ({
+  //       ...item, // Spread the companyData to include all fields
+  //       name: `${response[0].first_name} ${response[0].last_name}`, // Add user name
+  //       email: response[0].email, // Add user email
+  //       image: banner[0]?.image || null // Add banner image, handle if banner is missing
+  //     }));
 
 
+  //     return res.status(200).json({
+  //       success: true,
+  //       data: combinedData // Send the combined data for all records
+  //     });
+
+  //   } catch (error) {
+  //     console.error("❌ Error in getByQrcode:", error);
+  //     return res.status(500).json({
+  //       success: false,
+  //       error: error.message || "Internal Server Error"
+  //     });
+  //   }
+  // }
+
+
+// static async getByQrcode(req, res) {
+//   try {
+//     const { user_id } = req.params;
+
+//     // Step 1: Get all QR codes for the user
+//     const [qrCodes] = await db.query(
+//       `SELECT id AS qr_code_id, image AS qr_image, user_id FROM qr_code WHERE user_id = ?`,
+//       [user_id]
+//     );
+
+//     if (!qrCodes.length) {
+//       return res.status(200).json({
+//         success: false,
+//         message: "No QR codes found for the specified user_id"
+//       });
+//     }
+
+//     // Step 2: Get user (company) details
+//     const [companyRows] = await db.query(
+//       `SELECT first_name, last_name, email FROM company WHERE id = ?`,
+//       [user_id]
+//     );
+
+//     const user = companyRows[0];
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found"
+//       });
+//     }
+
+//     // Step 3: Get all banners for the QR codes
+//     const qrCodeIds = qrCodes.map(qr => qr.qr_code_id);
+//     const [banners] = await db.query(
+//       `SELECT image, qr_code_id FROM banner WHERE user_id = ? AND qr_code_id IN (?)`,
+//       [user_id, qrCodeIds]
+//     );
+
+//     const bannerMap = {};
+//     banners.forEach(b => {
+//       bannerMap[b.qr_code_id] = b.image;
+//     });
+
+//     // Step 4: Combine all data
+//     const result = qrCodes.map(qr => ({
+//       qr_code_id: qr.qr_code_id,
+//       user_id: qr.user_id,
+//       qr_image: qr.qr_image,
+//       name: `${user.first_name} ${user.last_name}`,
+//       email: user.email,
+//       banner_image: bannerMap[qr.qr_code_id] || null
+//     }));
+
+//     return res.status(200).json({
+//       success: true,
+//       data: result
+//     });
+
+//   } catch (error) {
+//     console.error("❌ Error in getByQrcode:", error);
+//     return res.status(500).json({
+//       success: false,
+//       error: error.message || "Internal Server Error"
+//     });
+//   }
+// }
+static async getByQrcode(req, res) {
+  try {
+    const { user_id } = req.params;
+
+    // Step 1: Get all records from qr_code table for the user
+    const [companyData] = await db.query(
+      `SELECT * FROM qr_code WHERE user_id = ?`,
+      [user_id]
+    );
+
+    if (!companyData.length) {
       return res.status(200).json({
-        success: true,
-        data: combinedData // Send the combined data for all records
-      });
-
-    } catch (error) {
-      console.error("❌ Error in getByQrcode:", error);
-      return res.status(500).json({
         success: false,
-        error: error.message || "Internal Server Error"
+        message: "No QR codes found for the specified user_id"
       });
     }
+
+    // Step 2: Get user/company info
+    const [userInfo] = await db.query(
+      `SELECT first_name, last_name, email FROM company WHERE id = ?`,
+      [user_id]
+    );
+
+    if (!userInfo.length) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const user = userInfo[0];
+
+    // Step 3: Get all qr_code IDs
+    const qrCodeIds = companyData.map(item => item.id);
+
+    // Step 4: Get all banners for this user and their QR codes
+    const [banners] = await db.query(
+      `SELECT image, qr_code_id FROM banner WHERE user_id = ? AND qr_code_id IN (?)`,
+      [user_id, qrCodeIds]
+    );
+
+    const bannerMap = {};
+    banners.forEach(b => {
+      bannerMap[b.qr_code_id] = b.image;
+    });
+
+    // Step 5: Merge all data
+    const combinedData = companyData.map(item => ({
+      ...item, // All original qr_code fields (id, image, created_at etc.)
+      name: `${user.first_name} ${user.last_name}`,
+      email: user.email,
+      banner_image: bannerMap[item.id] || null
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: combinedData
+    });
+
+  } catch (error) {
+    console.error("❌ Error in getByQrcode:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Internal Server Error"
+    });
   }
-
-
+}
 
 
   static async editQRCode(req, res) {
