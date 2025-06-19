@@ -38,23 +38,42 @@ class ReviewCustomizationController {
     }
 
     static async getallReviewCustom(req, res) {
-        try {
-            const { id } = req.query;
-            const result = await QRCodeable.getById(id);
-            if (result) {
-                return res.status(200).json({
-                    success: true,
-                    message: "rating fetched successfully",
-                    data: result,
+    try {
+        const { id } = req.query;
 
-                });
-            } else {
-                return res.status(404).json({ message: "No rating fetch for this buisness." });
-            }
-        } catch (error) {
-            return res.status(500).json({ error: error.message });
+        const result = await QRCodeable.getById(id);
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: "No rating fetched for this business."
+            });
         }
+
+        // user_id nikalo result se
+        const user_id = result.user_id;
+
+        // email fetch karo company table se
+        const [companyResult] = await db.query(
+            `SELECT email FROM company WHERE id = ?`,
+            [user_id]
+        );
+
+        const email = companyResult.length > 0 ? companyResult[0].email : null;
+
+        return res.status(200).json({
+            success: true,
+            message: "Rating fetched successfully",
+            data: {
+                ...result,
+                email: email
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
+}
+
 
 
 

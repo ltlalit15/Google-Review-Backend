@@ -106,53 +106,56 @@ class bannerController {
     }
   }
 
-  static async getBannerDetails(req, res) {
-    try {
-      const { user_id, qr_code_id } = req.query; // Extract query parameters from the request
+static async getBannerDetails(req, res) {
+  try {
+    const { user_id, qr_code_id } = req.query;
 
-      // Validate if both user_id and qr_code_id are provided
-      if (!user_id || !qr_code_id) {
-        return res.status(200).json({
-          success: false,
-          message: "Both user_id and qr_code_id are required"
-        });
-      }
-
-      // Perform the SQL query to fetch the banner image and offer from the qr_code table
-      const [result] = await db.query(
-        `SELECT b.image, q.place_id
-           FROM banner b
-           JOIN qr_code q ON b.qr_code_id = q.id
-           AND q.user_id = b.user_id
-           WHERE b.user_id = ? AND b.qr_code_id = ?`,
-        [user_id, qr_code_id]
-      );
-
-      if (!result || result.length === 0) {
-        return res.status(200).json({
-          success: false,
-          message: "No data found for the given user_id and qr_code_id"
-        });
-      }
-
+    if (!user_id || !qr_code_id) {
       return res.status(200).json({
-        success: true,
-        message: "Banner and offer details fetched successfully",
-        data: {
-          image: result[0].image,
-          offer: result[0].offer,
-          place_id: result[0]
-        }
-      });
-
-    } catch (error) {
-      console.log("Error while fetching banner and offer details:", error);
-      return res.status(500).json({
         success: false,
-        error: error.message || "Something went wrong"
+        message: "Both user_id and qr_code_id are required"
       });
     }
+
+    const [result] = await db.query(
+      `SELECT 
+          b.image, 
+          q.place_id, 
+          c.email 
+        FROM banner b
+        JOIN qr_code q ON b.qr_code_id = q.id AND q.user_id = b.user_id
+        JOIN company c ON c.id = b.user_id
+        WHERE b.user_id = ? AND b.qr_code_id = ?`,
+      [user_id, qr_code_id]
+    );
+
+    if (!result || result.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "No data found for the given user_id and qr_code_id"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Banner and offer details fetched successfully",
+      data: {
+        image: result[0].image,
+        offer: result[0].offer, // yeh line tabhi rakhni chahiye agar `offer` aapke table mein hai
+        place_id: result[0].place_id,
+        email: result[0].email
+      }
+    });
+
+  } catch (error) {
+    console.log("Error while fetching banner and offer details:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Something went wrong"
+    });
   }
+}
+
 }
 export default bannerController;
 
