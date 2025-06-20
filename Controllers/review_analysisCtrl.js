@@ -2,6 +2,7 @@ import Controllers from "../Models/Model.js";
 const review_analysisTable = new Controllers("review_analysis");
 const servay_reviews = new Controllers("review_survey");
 import db from "../Config/Connection.js"
+import emailjs from '@emailjs/nodejs';
 
 class review_analysisController {
   static async getCurrentMonthReviewAnalysis(req, res) {
@@ -85,7 +86,6 @@ class review_analysisController {
       return res.status(500).json({ success: false, error: error.message });
     }
   }
-
 
   static async createReviewAnalysis(req, res) {
     try {
@@ -208,7 +208,53 @@ class review_analysisController {
     }
   }
 
+  static async sheduleMail(req, res) {
+    try {
+      const { feedback, email } = req.body;
 
+      if (!feedback || !email) {
+        return res.status(400).json({ success: false, message: "Missing feedback or email" });
+      }
+
+      const randomDays = Math.floor(Math.random() * 2) + 1; 
+      const delayInMs = randomDays * 24 * 60 * 60 * 1000;
+
+      // const randomDays = Math.floor(Math.random() * 5) + 1;
+      // const delayInMs = randomDays * 60 * 1000;
+
+      const templateParams = {
+        email,
+        name: email,
+        title: "Review Analysis",
+        reply: feedback,
+      };
+
+      console.log(`⏳ Email will be sent after ${randomDays} day(s)`);
+
+      setTimeout(async () => {
+        try {
+          await emailjs.send(
+            "service_vvp6mfh",
+            "template_wkrvyhk",
+            templateParams,
+            "B78PsxsVYoIyekT6g"
+          );
+          console.log("✅ Email sent successfully to:", email);
+        } catch (err) {
+          console.error("❌ Error sending email:", err.message);
+        }
+      }, delayInMs);
+
+      return res.status(200).json({
+        success: true,
+        message: `Email scheduled successfully to be sent after ${randomDays} day(s)`,
+        data: { email }
+      });
+
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
 }
 
 export default review_analysisController;
