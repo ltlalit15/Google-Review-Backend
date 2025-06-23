@@ -34,7 +34,7 @@ class companyController {
       if (req.file && req.file.path) {
         imageUrl = req.file.path; // multer-storage-cloudinary gives full CDN URL
       }
-
+const hasedPassword = await bcrypt.hash(password, 10);
       const dataToSave = {
         business_name,
         business_type,
@@ -42,7 +42,7 @@ class companyController {
         last_name,
         location,
         email,
-        password,
+        password:hasedPassword,
         image: imageUrl, // add this field in DB model/schema
       };
       console.log("dataToSave", dataToSave);
