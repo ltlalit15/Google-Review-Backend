@@ -1,7 +1,6 @@
 import express from "express";
 
 import companyController from "../Controllers/companyCtrl.js";
-import upload from "../Middlewares/ImageUpload.js";
 
 const router = express.Router();
 
