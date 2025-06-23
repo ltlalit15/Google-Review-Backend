@@ -39,17 +39,17 @@ class companyController {
         }
       }
 
-     if (req.files?.image) {
-  const imageFile = req.files.image;
-  const uploadResult = await cloudinary.uploader.upload(
-    imageFile.tempFilePath,
-    {
-      folder: "qrcodes",
-      resource_type: "image"
-    }
-  );
-  imageUrl = uploadResult.secure_url;
-}
+      if (req.files?.image) {
+        const imageFile = req.files.image;
+        const uploadResult = await cloudinary.uploader.upload(
+          imageFile.tempFilePath,
+          {
+            folder: "qrcodes",
+            resource_type: "image"
+          }
+        );
+        imageUrl = uploadResult.secure_url;
+      }
 
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -187,6 +187,8 @@ class companyController {
         business_name,
         email,
         password,
+        first_name,
+        last_name,
       } = req.body;
 
       if (!id) {
@@ -198,6 +200,8 @@ class companyController {
         !location &&
         !email &&
         !password &&
+        !first_name &&
+        !last_name &&
         !req.files?.image
       ) {
         return res.status(400).json({ error: "At least one field is required to update." });
@@ -213,6 +217,8 @@ class companyController {
       const updatedData = {};
       if (business_name) updatedData.business_name = business_name;
       if (email) updatedData.email = email;
+      if (first_name) updatedData.first_name = first_name;
+      if (last_name) updatedData.last_name = last_name;
 
       // Handle password hashing
       if (password) {

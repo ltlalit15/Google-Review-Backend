@@ -17,6 +17,6 @@ router.get("/getCompanyDetails", companyController.getCompanyDetails);
 router.get("/getCompanyDetailsforSentimentAnalytics", companyController.getCompanyDetailsforSentimentAnalytics);
 // router.get("/getCompanyHeadlineDetails", companyController.getCompanyHeadlineDetails);
 // router.get("/getReviewHeadline", companyController.getReviewHeadline);
-
+router.get("/getCompanyDetailsForReviewMangement", companyController.getCompanyDetailsForReviewMangement);
 
 export default router;  
