@@ -20,8 +20,18 @@ class companyController {
 
   static async createCompany(req, res) {
     try {
-      const { business_name, business_type, first_name, last_name, location, email, password } = req.body;
-      console.log(req.body, "req.body;");
+      const {
+        business_name,
+        business_type,
+        first_name,
+        last_name,
+        location,
+        email,
+        password,
+      } = req.body;
+
+      let imageUrl = "";
+
       if (email) {
         const existingCompany = await company.findEmail(email);
         if (existingCompany) {
@@ -29,12 +39,21 @@ class companyController {
         }
       }
 
-      // ✅ Image URL from Cloudinary (optional)
-      let imageUrl = "";
-      if (req.file && req.file.path) {
-        imageUrl = req.file.path; // multer-storage-cloudinary gives full CDN URL
-      }
-const hasedPassword = await bcrypt.hash(password, 10);
+     if (req.files?.image) {
+  const imageFile = req.files.image;
+  const uploadResult = await cloudinary.uploader.upload(
+    imageFile.tempFilePath,
+    {
+      folder: "qrcodes",
+      resource_type: "image"
+    }
+  );
+  imageUrl = uploadResult.secure_url;
+}
+
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      console.log(hashedPassword, "hashedPassword");
       const dataToSave = {
         business_name,
         business_type,
@@ -42,10 +61,10 @@ const hasedPassword = await bcrypt.hash(password, 10);
         last_name,
         location,
         email,
-        password:hasedPassword,
-        image: imageUrl, // add this field in DB model/schema
+        password: hashedPassword,
+        image: imageUrl,
       };
-      console.log("dataToSave", dataToSave);
+
       const resultData = await company.create(dataToSave);
       const inserted = await company.getById(resultData.insertId);
 
