@@ -341,13 +341,13 @@ class UserController {
   static async editUser(req, res) {
     try {
       const { id } = req.params;
-      const { name, email, phone, password } = req.body;
+      const { name, email, phone, password ,first_name, last_name} = req.body;
 
       if (!id) {
         return res.status(400).json({ error: "User ID is required." });
       }
 
-      if (!name && !email && !password && !req.files?.image) {
+      if (!name && !email && !password && !req.files?.image && !phone && !first_name && !last_name) {
         return res.status(400).json({ error: "At least one field is required to update." });
       }
 
@@ -355,11 +355,12 @@ class UserController {
       if (!existingUser) {
         return res.status(404).json({ message: "User not found." });
       }
-      const hashedPassword = bcrypt.hash(password, 10)
       const updatedData = {};
       if (name) updatedData.name = name;
       if (email) updatedData.email = email;
       if (phone) updatedData.phone = phone;
+      if (first_name) updatedData.first_name = first_name;
+      if (last_name) updatedData.last_name = last_name;
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
         updatedData.password = hashedPassword;
