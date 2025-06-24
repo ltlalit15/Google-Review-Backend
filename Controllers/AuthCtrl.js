@@ -291,7 +291,8 @@ class UserController {
           data: {
             id: existingUser.id,
             group_id: existingUser.group_id,
-            name: existingUser.name,
+            first_name: existingUser.first_name,
+            last_name: existingUser.last_name,
             group_name,
             email: existingUser.email,
             phone: existingUser.phone,
