@@ -34,22 +34,22 @@ class UserController {
 
   static async signInWithGoogle(req, res) {
     const { token } = req.body;
-  try {
-    // Verify the token sent from the frontend
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    const uid = decodedToken.uid;
+    try {
+      // Verify the token sent from the frontend
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      const uid = decodedToken.uid;
 
-    // Fetch the user info
-    const user = await admin.auth().getUser(uid);
-    console.log('User info from Firebase:', user);
+      // Fetch the user info
+      const user = await admin.auth().getUser(uid);
+      console.log('User info from Firebase:', user);
 
-    // Send response back to the frontend
-    res.json({ success: true, user });
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ success: false, message: 'Unauthorized' });
-  }
-   
+      // Send response back to the frontend
+      res.json({ success: true, user });
+    } catch (error) {
+      console.error('Error verifying token:', error);
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
   }
   static async getallUser(req, res) {
     try {
@@ -342,7 +342,7 @@ class UserController {
   static async editUser(req, res) {
     try {
       const { id } = req.params;
-      const { name, email, phone, password ,first_name, last_name} = req.body;
+      const { name, email, phone, password, first_name, last_name } = req.body;
 
       if (!id) {
         return res.status(400).json({ error: "User ID is required." });
