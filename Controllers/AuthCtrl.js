@@ -316,7 +316,6 @@ class UserController {
         if (companyUser.status == 0) {
           return res.status(403).json({ message: "Your company account is inactive. Please contact support." });
         }
-
         return res.status(200).json({
           success: true,
           message: "Login successful",
@@ -324,6 +323,8 @@ class UserController {
             id: companyUser.id,
             group_id: 3,
             name: companyUser.business_name,
+            first_name: companyUser.first_name,
+            last_name: companyUser.last_name,
             group_name: "Company",
             email: companyUser.email,
             phone: null,
