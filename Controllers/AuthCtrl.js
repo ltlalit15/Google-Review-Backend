@@ -312,7 +312,6 @@ class UserController {
           return res.status(401).json({ message: "Invalid password." });
         }
 
-        // Check if company account is active (status == 1)
         if (companyUser.status == 0) {
           return res.status(403).json({ message: "Your company account is inactive. Please contact support." });
         }

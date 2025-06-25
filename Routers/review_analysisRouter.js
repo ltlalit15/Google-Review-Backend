@@ -10,5 +10,4 @@ router.post("/create_review_servey",  review_analysisController.createreview_ser
 router.get("/review_analysis", review_analysisController.getCurrentMonthReviewAnalysis);
 router.get("/get_review_servey", review_analysisController.getreview_servay);
 
-
 export default router;
