@@ -284,7 +284,6 @@ class UserController {
 
         const find_groupName = await groupTable.getById(existingUser.group_id);
         const group_name = find_groupName?.group_name || "";
-
         return res.status(200).json({
           success: true,
           message: "Login successful",

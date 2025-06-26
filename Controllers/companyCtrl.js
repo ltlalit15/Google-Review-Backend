@@ -23,70 +23,78 @@ cloudinary.config({
 
 class companyController {
 
-  static async createCompany(req, res) {
-    try {
-      const {
-        business_name,
-        business_type,
-        first_name,
-        last_name,
-        location,
-        email,
-        password,
-      } = req.body;
+static async createCompany(req, res) {
+  try {
+    const {
+      business_name,
+      business_type,
+      first_name,
+      last_name,
+      location,
+      email,
+      password,
+      image: imageFromBody // <-- added
+    } = req.body;
 
-      let imageUrl = "";
+    let imageUrl = "";
 
-      if (email) {
-        const existingCompany = await company.findEmail(email);
-        if (existingCompany) {
-          return res.status(409).json({ error: "Email already exists." });
-        }
+    // Email check
+    if (email) {
+      const existingCompany = await company.findEmail(email);
+      if (existingCompany) {
+        return res.status(409).json({ error: "Email already exists." });
       }
-
-      if (req.files?.image) {
-        const imageFile = req.files.image;
-        const uploadResult = await cloudinary.uploader.upload(
-          imageFile.tempFilePath,
-          {
-            folder: "qrcodes",
-            resource_type: "image"
-          }
-        );
-        imageUrl = uploadResult.secure_url;
-      }
-
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      console.log(hashedPassword, "hashedPassword");
-      const dataToSave = {
-        business_name,
-        business_type,
-        first_name,
-        last_name,
-        location,
-        email,
-        password: hashedPassword,
-        image: imageUrl,
-      };
-
-      const resultData = await company.create(dataToSave);
-      const inserted = await company.getById(resultData.insertId);
-
-      return res.status(201).json({
-        success: true,
-        message: "Company created successfully",
-        data: inserted,
-      });
-
-    } catch (error) {
-      console.log("❌ Error while creating Company:", error);
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Something went wrong",
-      });
     }
+
+    // ✅ Handle image as string URL from body
+    if (imageFromBody && typeof imageFromBody === "string" && imageFromBody.startsWith("http")) {
+      imageUrl = imageFromBody;
+    }
+
+    // ✅ Handle image file upload
+    else if (req.files?.image && req.files.image.size > 0) {
+      const imageFile = req.files.image;
+      const uploadResult = await cloudinary.uploader.upload(
+        imageFile.tempFilePath || imageFile.path,
+        {
+          folder: "qrcodes",
+          resource_type: "image",
+        }
+      );
+      imageUrl = uploadResult.secure_url;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const dataToSave = {
+      business_name,
+      business_type,
+      first_name,
+      last_name,
+      location,
+      email,
+      password: hashedPassword,
+      image: imageUrl,
+    };
+
+    const resultData = await company.create(dataToSave);
+    const inserted = await company.getById(resultData.insertId);
+
+    return res.status(201).json({
+      success: true,
+      message: "Company created successfully",
+      data: inserted,
+    });
+
+  } catch (error) {
+    console.log("❌ Error while creating Company:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Something went wrong",
+    });
   }
+}
+
 
 
   static async getallCompany(req, res) {
