@@ -4,6 +4,11 @@ import bcrypt from 'bcrypt';
 
 const company = new Controllers("company");
 const userTable = new Controllers("users");
+import { OpenAI } from "openai";
+
+const base64Key = "c2stcHJvai1EdVE3Q08yRTdvdVhYN0dSa2Y0eWxrNmpLczVqYlRDLXJycGZSX1JldllaM05LR1V4ZkVFOGQtWkNqeUtMaVAwQTRQam56eThvWVQzQmxia0ZKMVdDbkcwLXh0RkVqU1BVenV0azNDT2lwLXl6cEVUWmE3cVpMQkFXYXpVaWpDX2ZWaDNwUkFkVzFZMWtuWWRBUkNSQ3ByOHpJNEE="; // your base64 key
+const OPENAI_API_KEY = Buffer.from(base64Key, "base64").toString("utf-8");
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 import cloudinary from '../Config/cloudinary.js';
 
@@ -282,27 +287,101 @@ class companyController {
       if (business_id && brach_id) {
         const [statsResult] = await db.query(
           `SELECT 
-              COUNT(*) AS total_reviews,
-              AVG(rating) AS average_rating
-           FROM review 
-           WHERE user_id = ? AND qr_code_id = ?`,
+            COUNT(*) AS total_reviews,
+            AVG(rating) AS average_rating
+         FROM review 
+         WHERE user_id = ? AND qr_code_id = ?`,
           [business_id, brach_id]
         );
 
         const [lastTwoReviews] = await db.query(
           `SELECT * FROM review 
-           WHERE user_id = ? AND qr_code_id = ? 
-           ORDER BY created_at DESC 
-           LIMIT 2`,
+         WHERE user_id = ? AND qr_code_id = ? 
+         ORDER BY created_at DESC 
+         LIMIT 2`,
           [business_id, brach_id]
         );
+
+        // AI Feedback Stats
+        const [result] = await db.query(
+          `SELECT 
+          ROUND(AVG(ai_response_quality) * 10, 2) AS ai_response_quality_percentage,
+          ROUND(AVG(sentiment_analysis_quality) * 10, 2) AS sentiment_analysis_quality_percentage,
+          COUNT(*) AS total_feedbacks
+         FROM ai_feedback 
+         WHERE user_id = ? AND qr_code_id = ?`,
+          [business_id, brach_id]
+        );
+
+        const [reviewStats] = await db.query(
+          `SELECT
+          COUNT(*) AS total_reviews,
+          SUM(CASE WHEN sentiment = 'Positive' THEN 1 ELSE 0 END) AS positive_reviews
+         FROM review_analysis
+         WHERE user_id = ? AND qr_code_id = ?`,
+          [business_id, brach_id]
+        );
+
+        // const [comononkeywords] = await db.query(
+        //   `SELECT feedback FROM review WHERE user_id = ? AND qr_code_id = ?`,
+        //   [business_id, brach_id]
+        // );
+
+        // const allFeedbackText = comononkeywords.map(f => f.feedback).join(" ");
+
+        //         let keywordData = [];
+
+        //         try {
+        //           const response = await openai.chat.completions.create({
+        //             model: "gpt-4", // or "gpt-3.5-turbo"
+        //             messages: [
+        //               {
+        //                 role: "system",
+        //                 content:
+        //                   "You are an AI assistant that analyzes customer feedback and finds top 3 most important keywords with their importance in percentage (based on repetition and relevance).",
+        //               },
+        //               {
+        //                 role: "user",
+        //                 content: `Analyze the following customer feedbacks and return the top 3 most relevant keywords with their relative importance in JSON format like this:
+        // [
+        //   { "label": "Service", "percentage": 50 },
+        //   { "label": "Food", "percentage": 30 },
+        //   { "label": "Atmosphere", "percentage": 20 }
+        // ]
+
+        // Here are the feedbacks:
+        // "${allFeedbackText}"`,
+        //               },
+        //             ],
+        //           });
+
+        //           const raw = response.choices[0].message.content;
+
+        //           // Parse only if JSON is properly returned
+        //           keywordData = JSON.parse(raw);
+        //         } catch (e) {
+        //           console.error("ChatGPT keyword parsing failed:", e.message);
+        //           keywordData = [];
+        //         }
+
+        const totalReviews = reviewStats[0].total_reviews;
+        const positiveReviews = reviewStats[0].positive_reviews;
+
+        const positiveReviewPercentage =
+          totalReviews > 0
+            ? parseFloat(((positiveReviews / totalReviews) * 100).toFixed(2))
+            : 0;
 
         return res.json({
           success: true,
           stats: statsResult[0],
-          last_two_reviews: lastTwoReviews
+          last_two_reviews: lastTwoReviews,
+          result,
+          positive_review_percentage: positiveReviewPercentage,
+          // top_keywords: keywordData, // ✅ Fixed this line
         });
       }
+
       // If only business_id is provided, return its QR codes
       if (business_id) {
         const [qrResult] = await db.query(
@@ -312,22 +391,95 @@ class companyController {
 
         return res.json({
           success: true,
-          qr_codes: qrResult
+          qr_codes: qrResult,
         });
       }
 
       // If neither, return companies list
-      const [companyResult] = await db.query("SELECT business_name, id FROM company");
+      const [companyResult] = await db.query(
+        "SELECT business_name, id FROM company"
+      );
       return res.json({
         success: true,
-        companies: companyResult
+        companies: companyResult,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "An error occurred while fetching company, QR, or review data.",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getKeywordsFromFeedback(req, res) {
+    try {
+      const { business_id, brach_id } = req.query;
+
+      if (!business_id || !brach_id) {
+        return res.status(400).json({
+          success: false,
+          message: "business_id and brach_id are required"
+        });
+      }
+
+      const [feedbackData] = await db.query(
+        `SELECT feedback FROM review WHERE user_id = ? AND qr_code_id = ?`,
+        [business_id, brach_id]
+      );
+
+      const allFeedbackText = feedbackData.map(f => f.feedback).join(" ");
+
+      if (!allFeedbackText || allFeedbackText.trim() === "") {
+        return res.json({
+          success: true,
+          top_keywords: []
+        });
+      }
+
+      let keywordData = [];
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an AI assistant that analyzes customer feedback and finds top 3 most important keywords with their importance in percentage (based on repetition and relevance).",
+            },
+            {
+              role: "user",
+              content: `Analyze the following customer feedbacks and return the top 3 most relevant keywords with their relative importance in JSON format like this:
+[
+  { "label": "Service", "percentage": 50 },
+  { "label": "Food", "percentage": 30 },
+  { "label": "Atmosphere", "percentage": 20 }
+]
+
+Here are the feedbacks:
+"${allFeedbackText}"`,
+            },
+          ],
+        });
+
+        const raw = response.choices[0].message.content;
+        keywordData = JSON.parse(raw);
+      } catch (err) {
+        console.error("ChatGPT keyword parsing error:", err.message);
+        keywordData = [];
+      }
+
+      return res.json({
+        success: true,
+        top_keywords: keywordData,
       });
 
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "An error occurred while fetching company, QR, or review data.",
-        error: error.message
+        message: "An error occurred while extracting keywords",
+        error: error.message,
       });
     }
   }

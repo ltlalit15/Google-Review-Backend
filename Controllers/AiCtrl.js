@@ -209,9 +209,9 @@ Respond strictly in JSON:
                 );
 
                 await db.query(
-                    `INSERT INTO ai_feedback (review_id, ai_response_quality, sentiment_analysis_quality, human_message)
-          VALUES (?, ?, ?, ?)`,
-                    [review_id, response_quality, sentiment_confidence, human_message]
+                    `INSERT INTO ai_feedback (review_id, ai_response_quality, sentiment_analysis_quality, human_message , user_id , qr_code_id)
+          VALUES (?, ?, ?, ? , ?, ?)`,
+                    [review_id, response_quality, sentiment_confidence, human_message, user_id, qr_code_id]
                 );
 
             } else {
