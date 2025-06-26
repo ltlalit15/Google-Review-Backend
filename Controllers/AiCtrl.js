@@ -314,9 +314,9 @@ Respond in:
     static async review(req, res) {
         try {
             const [reviews] = await db.query(`
-            SELECT r.*, q.image 
+            SELECT r.*, q.logo 
             FROM review r
-            JOIN banner q ON r.qr_code_id = q.id AND r.user_id = q.user_id
+            JOIN qr_code q ON r.qr_code_id = q.id AND r.user_id = q.user_id
             WHERE r.rating IN (3, 4)
             LIMIT 10
         `);
