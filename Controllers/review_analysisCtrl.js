@@ -48,9 +48,9 @@ class review_analysisController {
       const [reviews] = await db.query(query, params);
 
       const total = reviews.length;
-      const positive = reviews.filter(r => r.sentiment === "Positive").length;
-      const negative = reviews.filter(r => r.sentiment === "Negative").length;
-      const mixed = reviews.filter(r => r.sentiment === "Neutral").length;
+      const positive = reviews.filter(r => r.sentiment === "positive").length;
+      const negative = reviews.filter(r => r.sentiment === "negative").length;
+      const mixed = reviews.filter(r => r.sentiment === "neutral").length;
 
       // Percentages
       const positivePercentage = total ? ((positive / total) * 100).toFixed(2) : "0.00";
