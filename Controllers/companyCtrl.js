@@ -23,77 +23,77 @@ cloudinary.config({
 
 class companyController {
 
-static async createCompany(req, res) {
-  try {
-    const {
-      business_name,
-      business_type,
-      first_name,
-      last_name,
-      location,
-      email,
-      password,
-      image: imageFromBody // <-- added
-    } = req.body;
+  static async createCompany(req, res) {
+    try {
+      const {
+        business_name,
+        business_type,
+        first_name,
+        last_name,
+        location,
+        email,
+        password,
+        image: imageFromBody // <-- added
+      } = req.body;
 
-    let imageUrl = "";
+      let imageUrl = "";
 
-    // Email check
-    if (email) {
-      const existingCompany = await company.findEmail(email);
-      if (existingCompany) {
-        return res.status(409).json({ error: "Email already exists." });
-      }
-    }
-
-    // ✅ Handle image as string URL from body
-    if (imageFromBody && typeof imageFromBody === "string" && imageFromBody.startsWith("http")) {
-      imageUrl = imageFromBody;
-    }
-
-    // ✅ Handle image file upload
-    else if (req.files?.image && req.files.image.size > 0) {
-      const imageFile = req.files.image;
-      const uploadResult = await cloudinary.uploader.upload(
-        imageFile.tempFilePath || imageFile.path,
-        {
-          folder: "qrcodes",
-          resource_type: "image",
+      // Email check
+      if (email) {
+        const existingCompany = await company.findEmail(email);
+        if (existingCompany) {
+          return res.status(409).json({ error: "Email already exists." });
         }
-      );
-      imageUrl = uploadResult.secure_url;
+      }
+
+      // ✅ Handle image as string URL from body
+      if (imageFromBody && typeof imageFromBody === "string" && imageFromBody.startsWith("http")) {
+        imageUrl = imageFromBody;
+      }
+
+      // ✅ Handle image file upload
+      else if (req.files?.image && req.files.image.size > 0) {
+        const imageFile = req.files.image;
+        const uploadResult = await cloudinary.uploader.upload(
+          imageFile.tempFilePath || imageFile.path,
+          {
+            folder: "qrcodes",
+            resource_type: "image",
+          }
+        );
+        imageUrl = uploadResult.secure_url;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const dataToSave = {
+        business_name,
+        business_type,
+        first_name,
+        last_name,
+        location,
+        email,
+        password: hashedPassword,
+        image: imageUrl,
+      };
+
+      const resultData = await company.create(dataToSave);
+      const inserted = await company.getById(resultData.insertId);
+
+      return res.status(201).json({
+        success: true,
+        message: "Company created successfully",
+        data: inserted,
+      });
+
+    } catch (error) {
+      console.log("❌ Error while creating Company:", error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Something went wrong",
+      });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const dataToSave = {
-      business_name,
-      business_type,
-      first_name,
-      last_name,
-      location,
-      email,
-      password: hashedPassword,
-      image: imageUrl,
-    };
-
-    const resultData = await company.create(dataToSave);
-    const inserted = await company.getById(resultData.insertId);
-
-    return res.status(201).json({
-      success: true,
-      message: "Company created successfully",
-      data: inserted,
-    });
-
-  } catch (error) {
-    console.log("❌ Error while creating Company:", error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || "Something went wrong",
-    });
   }
-}
 
 
 
@@ -420,77 +420,96 @@ static async createCompany(req, res) {
     }
   }
 
-  static async getKeywordsFromFeedback(req, res) {
+static async getKeywordsFromFeedback(req, res) {
+  try {
+    const { business_id, brach_id } = req.query;
+
+    if (!business_id || !brach_id) {
+      return res.status(400).json({
+        success: false,
+        message: "business_id and brach_id are required",
+      });
+    }
+
+    // Get feedbacks from DB
+    const [feedbackData] = await db.query(
+      `SELECT feedback FROM review WHERE user_id = ? AND qr_code_id = ?`,
+      [business_id, brach_id]
+    );
+
+    console.log("Feedback Data:", feedbackData);
+
+    const allFeedbackText = feedbackData.map(f => f.feedback).join(" ");
+    console.log("All Feedback Text:", allFeedbackText);
+
+    if (!allFeedbackText || allFeedbackText.trim() === "") {
+      return res.json({
+        success: true,
+        top_keywords: [],
+      });
+    }
+
+    let keywordData = [];
+
     try {
-      const { business_id, brach_id } = req.query;
-
-      if (!business_id || !brach_id) {
-        return res.status(400).json({
-          success: false,
-          message: "business_id and brach_id are required"
-        });
-      }
-
-      const [feedbackData] = await db.query(
-        `SELECT feedback FROM review WHERE user_id = ? AND qr_code_id = ?`,
-        [business_id, brach_id]
-      );
-
-      const allFeedbackText = feedbackData.map(f => f.feedback).join(" ");
-
-      if (!allFeedbackText || allFeedbackText.trim() === "") {
-        return res.json({
-          success: true,
-          top_keywords: []
-        });
-      }
-
-      let keywordData = [];
-
-      try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an AI assistant that analyzes customer feedback and finds top 3 most important keywords with their importance in percentage (based on repetition and relevance).",
-            },
-            {
-              role: "user",
-              content: `Analyze the following customer feedbacks and return the top 3 most relevant keywords with their relative importance in JSON format like this:
+      // 🔥 Call OpenAI
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an AI assistant that analyzes customer feedback and finds top 3 most important keywords with their importance in percentage (based on repetition and relevance).",
+          },
+          {
+            role: "user",
+            content: `Analyze the following customer feedbacks and return only the top 3 most relevant keywords with their relative importance in strict JSON format like this:
 [
   { "label": "Service", "percentage": 50 },
   { "label": "Food", "percentage": 30 },
   { "label": "Atmosphere", "percentage": 20 }
 ]
 
+Return only the JSON array. No explanation. No text before or after.
+
 Here are the feedbacks:
 "${allFeedbackText}"`,
-            },
-          ],
-        });
+          },
+        ],
+      });
 
-        const raw = response.choices[0].message.content;
-        keywordData = JSON.parse(raw);
-      } catch (err) {
-        console.error("ChatGPT keyword parsing error:", err.message);
-        keywordData = [];
+      const raw = response.choices[0].message.content;
+      console.log("Raw OpenAI Response:", raw);
+
+      // ✅ Extract only the JSON part from response
+      const jsonMatch = raw.match(/\[\s*{[\s\S]*}\s*\]/); // Match JSON array
+      
+      if (jsonMatch && jsonMatch[0]) {
+        keywordData = JSON.parse(jsonMatch[0]);
+      } else {
+        console.warn("Valid JSON array not found in OpenAI response");
       }
 
-      return res.json({
-        success: true,
-        top_keywords: keywordData,
-      });
-
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: "An error occurred while extracting keywords",
-        error: error.message,
-      });
+    } catch (err) {
+      console.error("ChatGPT keyword parsing error:", err.message);
+      keywordData = [];
     }
+
+    return res.json({
+      success: true,
+      top_keywords: keywordData,
+    });
+
+  } catch (error) {
+    console.error("Server error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while extracting keywords",
+      error: error.message,
+    });
   }
+}
+
 
   static async getCompanyDetailsForReviewMangement(req, res) {
     try {
