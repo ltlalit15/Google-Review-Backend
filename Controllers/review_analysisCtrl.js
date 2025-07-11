@@ -5,87 +5,103 @@ import db from "../Config/Connection.js"
 import emailjs from '@emailjs/nodejs';
 
 class review_analysisController {
-  static async getCurrentMonthReviewAnalysis(req, res) {
-    try {
-      const { user_id, qr_code_id, formDate, toDate } = req.query;
-      if (!user_id || !qr_code_id) {
-        return res.status(400).json({ success: false, message: "Missing user_id or qr_code_id" });
-      }
+static async getCurrentMonthReviewAnalysis(req, res) {
+  try {
+    const { user_id, qr_code_id, fromDate, toDate } = req.query;
 
-      const currentDate = new Date();
-      const currentMonthYear = `${currentDate.getMonth() + 1}-${currentDate.getFullYear()}`;
+    if (!user_id || !qr_code_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing user_id or qr_code_id"
+      });
+    }
 
-      // Build base query
-      let query = `
+    const currentDate = new Date();
+    const currentMonthYear = `${currentDate.getMonth() + 1}-${currentDate.getFullYear()}`;
+
+    let query = `
       SELECT 
         r.feedback,
         ra.summary,
         ra.sentiment,
-        ra.created_at
+        r.rating,
+        r.created_at
       FROM 
-        review_analysis ra
-      LEFT JOIN review r 
-        ON ra.review_id = r.id  
+        review r
+      LEFT JOIN review_analysis ra ON ra.review_id = r.id
       WHERE 
-        ra.user_id = ? 
-        AND ra.qr_code_id = ?
+        r.user_id = ? 
+        AND r.qr_code_id = ?
     `;
 
-      const params = [user_id, qr_code_id];
+    const params = [user_id, qr_code_id];
 
-      // Add date filter if provided
-      if (formDate && toDate) {
-        const startDate = `${formDate} 00:00:00`;
-        const endDate = `${toDate} 23:59:59`;
-        query += " AND ra.created_at BETWEEN ? AND ? ";
-        params.push(startDate, endDate);
-      }
-
-
-      // Add ordering
-      query += " ORDER BY ra.created_at DESC;";
-
-      const [reviews] = await db.query(query, params);
-
-      const total = reviews.length;
-      const positive = reviews.filter(r => r.sentiment === "positive").length;
-      const negative = reviews.filter(r => r.sentiment === "negative").length;
-      const mixed = reviews.filter(r => r.sentiment === "neutral").length;
-
-      // Percentages
-      const positivePercentage = total ? ((positive / total) * 100).toFixed(2) : "0.00";
-      const negativePercentage = total ? ((negative / total) * 100).toFixed(2) : "0.00";
-      const mixedPercentage = total ? ((mixed / total) * 100).toFixed(2) : "0.00";
-
-      // Response structure
-      const response = {
-        month: currentMonthYear,
-        total,
-        positive,
-        negative,
-        mixed,
-        positive_percentage: positivePercentage,
-        negative_percentage: negativePercentage,
-        mixed_percentage: mixedPercentage,
-        feedbacks: reviews.map(r => ({
-          feedback: r.feedback || "No feedback available",
-          summary: r.summary || "No summary available",
-          sentiment: r.sentiment || "No summary available",
-          created_at: r.created_at || "No date available",
-        }))
-      };
-
-      // Send response
-      res.json({
-        success: true,
-        message: "Current month review analysis fetched successfully",
-        data: response
-      });
-
-    } catch (error) {
-      return res.status(500).json({ success: false, error: error.message });
+    if (fromDate && toDate) {
+      const startDate = `${fromDate} 00:00:00`;
+      const endDate = `${toDate} 23:59:59`;
+      query += " AND r.created_at BETWEEN ? AND ? ";
+      params.push(startDate, endDate);
     }
+
+    query += " ORDER BY r.created_at DESC";
+
+    const [reviews] = await db.query(query, params);
+
+    // Apply fallback sentiment
+    const enrichedReviews = reviews.map(r => {
+      let sentiment = r.sentiment;
+      if (!sentiment && r.rating == 5) {
+        sentiment = "positive";
+      } else if (!sentiment) {
+        sentiment = "Not analyzed";
+      }
+      return {
+        ...r,
+        sentiment
+      };
+    });
+
+    const total = enrichedReviews.length;
+    const positive = enrichedReviews.filter(r => r.sentiment === "positive").length;
+    const negative = enrichedReviews.filter(r => r.sentiment === "negative").length;
+    const neutral = enrichedReviews.filter(r => r.sentiment === "neutral").length;
+
+    const calculatePercentage = (count) =>
+      total ? ((count / total) * 100).toFixed(2) : "0.00";
+
+    const response = {
+      month: currentMonthYear,
+      total,
+      positive,
+      negative,
+      mixed: neutral,
+      positive_percentage: calculatePercentage(positive),
+      negative_percentage: calculatePercentage(negative),
+      mixed_percentage: calculatePercentage(neutral),
+      feedbacks: enrichedReviews.map(r => ({
+        feedback: r.feedback || "No feedback available",
+        summary: r.summary || "No summary available",
+        sentiment: r.sentiment,
+        created_at: r.created_at || "No date available"
+      }))
+    };
+
+    return res.json({
+      success: true,
+      message: "Current month review analysis fetched successfully",
+      data: response
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching review analysis",
+      error: error.message
+    });
   }
+}
+
+
 
   static async createReviewAnalysis(req, res) {
     try {
@@ -216,7 +232,7 @@ class review_analysisController {
         return res.status(400).json({ success: false, message: "Missing feedback or email" });
       }
 
-      const randomDays = Math.floor(Math.random() * 2) + 1; 
+      const randomDays = Math.floor(Math.random() * 2) + 1;
       const delayInMs = randomDays * 24 * 60 * 60 * 1000;
 
       // const randomDays = Math.floor(Math.random() * 5) + 1;

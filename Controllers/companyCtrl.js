@@ -506,91 +506,99 @@ Here are the feedbacks:
 }
 
 
-  static async getCompanyDetailsForReviewMangement(req, res) {
-    try {
-      const { business_id, brach_id } = req.query;
+static async getCompanyDetailsForReviewMangement(req, res) {
+  try {
+    const { business_id, brach_id } = req.query;
 
-      if (business_id && brach_id) {
-        // Total reviews, average rating, and rating distribution
-        const [statsResult] = await db.query(
-          `SELECT 
-          COUNT(r.id) AS total_reviews,
-          AVG(CAST(ra.rating AS DECIMAL(10,2))) AS average_rating,
-          COUNT(CASE WHEN ra.rating = 1 THEN 1 END) AS one_star,
-          COUNT(CASE WHEN ra.rating = 2 THEN 1 END) AS two_star,
-          COUNT(CASE WHEN ra.rating = 3 THEN 1 END) AS three_star,
-          COUNT(CASE WHEN ra.rating = 4 THEN 1 END) AS four_star,
-          COUNT(CASE WHEN ra.rating = 5 THEN 1 END) AS five_star
-        FROM review r
-        LEFT JOIN review_analysis ra ON r.id = ra.review_id
-        WHERE r.user_id = ? AND r.qr_code_id = ?`,
-          [business_id, brach_id]
-        );
-        const [lastTwoReviews] = await db.query(
-          `SELECT 
-          r.*, 
-          ra.problems, 
-          ra.sentiment, 
-          ra.email, 
-          ra.summary, 
-          ra.emotional_tone, 
-          ra.reply, 
-          ra.solutions, 
-          ra.rating 
+    if (business_id && brach_id) {
+      // Step 1: Stats only from `review` table
+      const [statsResult] = await db.query(
+        `SELECT 
+          COUNT(id) AS total_reviews,
+          AVG(CAST(rating AS DECIMAL(10,2))) AS average_rating,
+          COUNT(CASE WHEN rating = 1 THEN 1 END) AS one_star,
+          COUNT(CASE WHEN rating = 2 THEN 1 END) AS two_star,
+          COUNT(CASE WHEN rating = 3 THEN 1 END) AS three_star,
+          COUNT(CASE WHEN rating = 4 THEN 1 END) AS four_star,
+          COUNT(CASE WHEN rating = 5 THEN 1 END) AS five_star
+        FROM review
+        WHERE user_id = ? AND qr_code_id = ?`,
+        [business_id, brach_id]
+      );
+
+      // Step 2: Last 2 reviews with JOIN from `review_analysis`
+      const [lastTwoReviews] = await db.query(
+        `SELECT 
+          r.id,
+          r.user_id,
+          r.qr_code_id,
+          r.description,
+          r.feedback,
+          r.rating,
+          r.email,
+          r.image,
+          r.created_at,
+          ra.problems,
+          ra.solutions,
+          ra.sentiment,
+          ra.summary,
+          ra.reply,
+          ra.emotional_tone
         FROM review r
         LEFT JOIN review_analysis ra ON r.id = ra.review_id
         WHERE r.user_id = ? AND r.qr_code_id = ?
         ORDER BY r.created_at DESC
-        `,
-          [business_id, brach_id]
-        );
-        return res.json({
-          success: true,
-          stats: {
-            ...statsResult[0],
-            rating_distribution: {
-              1: statsResult[0].one_star || 0,
-              2: statsResult[0].two_star || 0,
-              3: statsResult[0].three_star || 0,
-              4: statsResult[0].four_star || 0,
-              5: statsResult[0].five_star || 0,
-            }
-          },
-          reviews: lastTwoReviews.map(review => ({
-            ...review,
-            problems: JSON.parse(review.problems || '[]'),
-            solutions: JSON.parse(review.solutions || '[]')
-          })),
-        });
-      }
+        LIMIT 2`,
+        [business_id, brach_id]
+      );
 
-      if (business_id) {
-        const [qrResult] = await db.query(
-          "SELECT headline, id FROM qr_code WHERE user_id = ?",
-          [business_id]
-        );
-
-        return res.json({
-          success: true,
-          qr_codes: qrResult
-        });
-      }
-
-      // If neither, return companies list
-      const [companyResult] = await db.query("SELECT business_name, id FROM company");
       return res.json({
         success: true,
-        companies: companyResult
-      });
-
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: "An error occurred while fetching company, QR, or review data.",
-        error: error.message
+        stats: {
+          ...statsResult[0],
+          rating_distribution: {
+            1: statsResult[0].one_star || 0,
+            2: statsResult[0].two_star || 0,
+            3: statsResult[0].three_star || 0,
+            4: statsResult[0].four_star || 0,
+            5: statsResult[0].five_star || 0,
+          }
+        },
+        reviews: lastTwoReviews.map(review => ({
+          ...review,
+          problems: JSON.parse(review.problems || '[]'),
+          solutions: JSON.parse(review.solutions || '[]')
+        }))
       });
     }
+
+    if (business_id) {
+      const [qrResult] = await db.query(
+        "SELECT headline, id FROM qr_code WHERE user_id = ?",
+        [business_id]
+      );
+      return res.json({
+        success: true,
+        qr_codes: qrResult
+      });
+    }
+
+    const [companyResult] = await db.query("SELECT business_name, id FROM company");
+    return res.json({
+      success: true,
+      companies: companyResult
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching data.",
+      error: error.message
+    });
   }
+}
+
+
 
 
   static async getCompanyDetailsforSentimentAnalytics(req, res) {
