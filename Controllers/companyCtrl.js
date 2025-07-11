@@ -87,7 +87,6 @@ class companyController {
       });
 
     } catch (error) {
-      console.log("❌ Error while creating Company:", error);
       return res.status(500).json({
         success: false,
         error: error.message || "Something went wrong",
@@ -301,6 +300,7 @@ class companyController {
          WHERE user_id = ? AND qr_code_id = ?`,
           [business_id, brach_id]
         );
+        console.log("statsResult",statsResult);
 
         const [lastTwoReviews] = await db.query(
           `SELECT * FROM review 
@@ -437,10 +437,8 @@ static async getKeywordsFromFeedback(req, res) {
       [business_id, brach_id]
     );
 
-    console.log("Feedback Data:", feedbackData);
 
     const allFeedbackText = feedbackData.map(f => f.feedback).join(" ");
-    console.log("All Feedback Text:", allFeedbackText);
 
     if (!allFeedbackText || allFeedbackText.trim() === "") {
       return res.json({
@@ -479,7 +477,6 @@ Here are the feedbacks:
       });
 
       const raw = response.choices[0].message.content;
-      console.log("Raw OpenAI Response:", raw);
 
       // ✅ Extract only the JSON part from response
       const jsonMatch = raw.match(/\[\s*{[\s\S]*}\s*\]/); // Match JSON array
@@ -491,7 +488,6 @@ Here are the feedbacks:
       }
 
     } catch (err) {
-      console.error("ChatGPT keyword parsing error:", err.message);
       keywordData = [];
     }
 
@@ -501,7 +497,6 @@ Here are the feedbacks:
     });
 
   } catch (error) {
-    console.error("Server error:", error.message);
     return res.status(500).json({
       success: false,
       message: "An error occurred while extracting keywords",
@@ -549,7 +544,6 @@ Here are the feedbacks:
         `,
           [business_id, brach_id]
         );
-        console.log("lastTwoReviews", lastTwoReviews);
         return res.json({
           success: true,
           stats: {
